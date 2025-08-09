@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Writing Progress Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: #808080;
+            color: #4e4312;
+            font-family: 'Montserrat', 'Roboto', Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: none;
+            width: 100vw;
+            min-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            background: #808080;
+            border-radius: 18px;
+            box-shadow: 0 4px 24px #0008;
+            padding: 48px 0 32px 0;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2em;
+            margin-bottom: 18px;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        label {
+            font-size: 1.1em;
+            margin-bottom: 4px;
+        }
+        input[type=number] {
+            padding: 8px;
+            border-radius: 8px;
+            border: none;
+            font-size: 1.1em;
+            background: #b8b8b8;
+            color: #4e4312;
+        }
+        input[type=number]:focus {
+            outline: 2px solid #4e4312;
+        }
+        .btn {
+            background: #4e4312;
+            color: #111;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            margin-top: 8px;
+            margin-right: 8px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .btn:hover {
+            background: #444;
+            color: #4e4312;
+        }
+        .progress-bar {
+            margin: 48px auto 24px auto;
+            display: block;
+            width: 900px;
+            height: 100px;
+            background: #00000000;
+            border-radius: 18px;
+            border: 4px solid #4e4312;
+            position: relative;
+            overflow: visible;
+            box-sizing: border-box;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4e4312 0%, #b6b5b2 100%);
+            border-radius: 18px 0 0 18px;
+            transition: width 0.4s;
+            z-index: 2;
+        }
+        .progress-text {
+            position: absolute;
+            width: 100%;
+            top: 0;
+            left: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2em;
+            color: #315009;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 3;
+        }
+        #ticMarks {
+            z-index: 4;
+        }
+        #wordCountInBar {
+            color: #4e4312 !important;
+            text-align: center;
+            width: 100%;
+            margin-top: 12px;
+        }
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 18px;
+        }
+        .footer {
+            text-align: center;
+            color: #4e4312;
+            font-size: 1em;
+            margin-top: 40px;
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Writing Progress Tracker</h1>
+        <div id="setup" style="display:none;">
+            <form id="goalForm" autocomplete="off">
+                <div class="input-group">
+                    <label for="goalInput">What is your book's goal word count?</label>
+                    <input type="number" id="goalInput" min="1" required>
+                </div>
+                <button class="btn" type="submit">Set Goal</button>
+            </form>
+        </div>
+        <div id="tracker" style="display:none;">
+            <div class="input-group">
+                <label for="addWordsInput">Add words written:</label>
+                <input type="number" id="addWordsInput" min="1">
+                <button class="btn" onclick="addWords()">Add</button>
+            </div>
+            <div class="progress-bar" style="position:relative;">
+                <div class="progress-fill" id="progressFill"></div>
+                <div class="progress-text" id="progressText"></div>
+                <div id="ticMarks" style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;"></div>
+            </div>
+            <div id="wordCountInBar"></div>
+            <div class="actions">
+                <button class="btn" onclick="downloadTracker()">Download Tracker</button>
+                <button class="btn" onclick="startNewBook()">Start a New Book</button>
+            </div>
+        </div>
+    </div>
+    <div class="footer">Keep writing! Every word brings you closer to your goal. ✨</div>
+    <script>
+        // LocalStorage keys
+        const KEY_GOAL = 'writing_goal';
+        const KEY_WRITTEN = 'writing_written';
+        function getGoal() {
+            return parseInt(localStorage.getItem(KEY_GOAL) || '0');
+        }
+        function getWritten() {
+            return parseInt(localStorage.getItem(KEY_WRITTEN) || '0');
+        }
+        function setGoal(val) {
+            localStorage.setItem(KEY_GOAL, val);
+        }
+        function setWritten(val) {
+            localStorage.setItem(KEY_WRITTEN, val);
+        }
+        function showSetup() {
+            document.getElementById('setup').style.display = '';
+            document.getElementById('tracker').style.display = 'none';
+        }
+        function showTracker() {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('tracker').style.display = '';
+            updateProgress();
+        }
+        document.getElementById('goalForm').onsubmit = function(e) {
+            e.preventDefault();
+            const goal = parseInt(document.getElementById('goalInput').value);
+            if (goal > 0) {
+                setGoal(goal);
+                setWritten(0);
+                showTracker();
+            }
+        };
+        function addWords() {
+            const input = document.getElementById('addWordsInput');
+            let add = parseInt(input.value);
+            if (!isNaN(add) && add > 0) {
+                let written = getWritten() + add;
+                let goal = getGoal();
+                if (written > goal) written = goal;
+                setWritten(written);
+                input.value = '';
+                updateProgress();
+            }
+        }
+        function updateProgress() {
+            const written = getWritten();
+            const goal = getGoal();
+            const percent = goal ? Math.min(100, Math.round((written/goal)*100)) : 0;
+            document.getElementById('progressFill').style.width = percent + '%';
+            const progressTextDiv = document.getElementById('progressText');
+            progressTextDiv.textContent = percent + '%';
+            progressTextDiv.style.fontSize = '2.2em';
+            progressTextDiv.style.color = '#315009';
+            progressTextDiv.style.fontWeight = 'bold';
+            progressTextDiv.style.textShadow = 'none';
+            progressTextDiv.style.zIndex = '10'; // Ensure on top
+            // Draw tic marks and percentage labels
+            const ticMarksDiv = document.getElementById('ticMarks');
+            ticMarksDiv.innerHTML = '';
+            if (goal > 0) {
+                const nBigTics = 4; // 0%, 25%, 50%, 75%, 100%
+                for (let i = 0; i <= nBigTics; i++) {
+                    const percentLabel = i * 25;
+                    const left = (percentLabel) + '%';
+                    // Big tic
+                    const tic = document.createElement('div');
+                    tic.style.position = 'absolute';
+                    tic.style.left = left;
+                    tic.style.top = '8px';
+                    tic.style.width = '4px';
+                    tic.style.height = '16px'; // Short as small lines
+                    tic.style.background = '#111';
+                    tic.style.opacity = '0.9';
+                    tic.style.fontWeight = 'bold';
+                    ticMarksDiv.appendChild(tic);
+                    // Percentage label
+                    const label = document.createElement('div');
+                    label.style.position = 'absolute';
+                    label.style.left = left;
+                    label.style.top = '-38px';
+                    label.style.transform = 'translateX(-50%)';
+                    label.style.color = '#315009';
+                    label.style.fontSize = '1.35em';
+                    label.style.fontWeight = 'bold';
+                    label.style.fontFamily = 'Montserrat, Arial';
+                    label.style.textShadow = 'none';
+                    label.textContent = percentLabel + '%';
+                    ticMarksDiv.appendChild(label);
+                }
+                // Small tic marks (every 5%)
+                for (let i = 1; i < 20; i++) {
+                    if (i % 5 === 0) continue; // skip big tics
+                    const percentSmall = i * 5;
+                    const left = percentSmall + '%';
+                    const tic = document.createElement('div');
+                    tic.style.position = 'absolute';
+                    tic.style.left = left;
+                    tic.style.top = '12px';
+                    tic.style.width = '2px';
+                    tic.style.height = '16px';
+                    tic.style.background = '#222';
+                    tic.style.opacity = '0.7';
+                    ticMarksDiv.appendChild(tic);
+                }
+                // Progress marker (arrow)
+                const progressPercent = goal ? Math.min(100, Math.round((written/goal)*100)) : 0;
+                const marker = document.createElement('div');
+                marker.style.position = 'absolute';
+                marker.style.left = progressPercent + '%';
+                marker.style.top = '0px';
+                marker.style.transform = 'translateX(-50%)';
+                marker.style.fontSize = '2.2em';
+                marker.style.color = '#315009';
+                marker.style.pointerEvents = 'none';
+                marker.textContent = '▼';
+                marker.style.zIndex = '9';
+                ticMarksDiv.appendChild(marker);
+            }
+            // Show word count below the bar
+            const wordCountDiv = document.getElementById('wordCountInBar');
+            wordCountDiv.textContent = `${written} / ${goal} words`;
+        }
+        function startNewBook() {
+            if (confirm('Start a new book? This will reset your progress.')) {
+                localStorage.removeItem(KEY_GOAL);
+                localStorage.removeItem(KEY_WRITTEN);
+                showSetup();
+            }
+        }
+        function downloadTracker() {
+            // Create a canvas and draw the progress bar with tic marks and word count
+            const canvas = document.createElement('canvas');
+            canvas.width = 900;
+            canvas.height = 250;
+            const ctx = canvas.getContext('2d');
+            // Transparent background (do not fill)
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            // Bar
+            ctx.strokeStyle = '#4e4312';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(50+18,80);
+            ctx.lineTo(50+800-18,80);
+            ctx.arcTo(50+800,80,50+800,80+18,18);
+            ctx.lineTo(50+800,80+100-18);
+            ctx.arcTo(50+800,80+100,50+800-18,80+100,18);
+            ctx.lineTo(50+18,80+100);
+            ctx.arcTo(50,80+100,50,80+100-18,18);
+            ctx.lineTo(50,80+18);
+            ctx.arcTo(50,80,50+18,80,18);
+            ctx.closePath();
+            ctx.stroke();
+            // Fill (gradient)
+            const percent = getGoal() ? Math.min(1, getWritten()/getGoal()) : 0;
+            if (percent > 0) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(50+18,80);
+                ctx.lineTo(50+18+800*percent-18,80);
+                ctx.arcTo(50+800*percent,80,50+800*percent,80+18,18);
+                ctx.lineTo(50+800*percent,80+100-18);
+                ctx.arcTo(50+800*percent,80+100,50+800*percent-18,80+100,18);
+                ctx.lineTo(50+18,80+100);
+                ctx.arcTo(50,80+100,50,80+100-18,18);
+                ctx.lineTo(50,80+18);
+                ctx.arcTo(50,80,50+18,80,18);
+                ctx.closePath();
+                ctx.clip();
+                const grad = ctx.createLinearGradient(50,80,50+800*percent,80);
+                grad.addColorStop(0, '#315009');
+                grad.addColorStop(1, '#4e4312');
+                ctx.fillStyle = grad;
+                ctx.fillRect(50,80,800*percent,100);
+                ctx.restore();
+            }
+            // Big tic marks and percentage labels
+            const goal = getGoal();
+            if (goal > 0) {
+                const nBigTics = 4; // 0%, 25%, 50%, 75%, 100%
+                for (let i = 0; i <= nBigTics; i++) {
+                    const percentTic = i * 0.25;
+                    const x = 50 + percentTic * 800;
+                    // Big tic
+                    ctx.save();
+                    ctx.globalAlpha = 0.9;
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(x-2, 80, 4, 16); // Short as small lines
+                    ctx.restore();
+                    // Percentage label
+                    ctx.font = 'bold 32px Montserrat, Arial';
+                    ctx.fillStyle = '#315009';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillText(Math.round(percentTic*100)+'%', x, 60);
+                }
+                // Small tic marks (every 5%)
+                for (let i = 1; i < 20; i++) {
+                    if (i % 5 === 0) continue; // skip big tics
+                    const percentTic = i * 0.05;
+                    const x = 50 + percentTic * 800;
+                    ctx.fillStyle = '#222';
+                    ctx.fillRect(x-1, 80, 2, 16);
+                }
+                // Progress marker (arrow)
+                const progressPercent = goal ? Math.min(1, getWritten()/goal) : 0;
+                const markerX = 50 + progressPercent * 800;
+                ctx.font = 'bold 48px Montserrat, Arial';
+                ctx.fillStyle = '#315009';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText('▼', markerX, 40);
+            }
+            // Percentage text inside bar (top layer)
+            ctx.save();
+            ctx.font = 'bold 48px Montserrat, Arial';
+            ctx.fillStyle = '#315009';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.globalAlpha = 1;
+            ctx.fillText(Math.round(percent*100)+'%', 450, 130);
+            ctx.restore();
+            // Download
+            const link = document.createElement('a');
+            link.download = 'writing-tracker.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        // On load
+        window.onload = function() {
+            if (getGoal() > 0) {
+                showTracker();
+            } else {
+                showSetup();
+            }
+        };
+    </script>
+</body>
+</html>
